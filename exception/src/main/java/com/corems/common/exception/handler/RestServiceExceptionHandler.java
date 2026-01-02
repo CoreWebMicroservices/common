@@ -22,7 +22,6 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
-import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +35,7 @@ public class RestServiceExceptionHandler extends ResponseEntityExceptionHandler 
 
     @ExceptionHandler({ServiceException.class})
     protected ResponseEntity<Object> handleServiceException(ServiceException ex, WebRequest request) {
-        log.error("ServiceException: ", ex);
+        if (ex.getHttpStatusCode().is5xxServerError()) log.error("ServiceException: ", ex);
         return handleExceptionInternal(ex,
                 ErrorResponse.of(errorConverter.getErrorsFromServiceException(ex, request)),
                 errorConverter.buildHttpHeaders(), ex.getHttpStatusCode(), request);

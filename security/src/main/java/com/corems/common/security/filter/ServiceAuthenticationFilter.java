@@ -87,6 +87,8 @@ public class ServiceAuthenticationFilter extends OncePerRequestFilter {
             );
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
+        } else {
+            throw ServiceException.of(DefaultExceptionReasonCodes.UNAUTHORIZED, "No token provided");
         }
 
         filterChain.doFilter(request, response);

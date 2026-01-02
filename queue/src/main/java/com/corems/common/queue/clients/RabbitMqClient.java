@@ -64,11 +64,13 @@ public class RabbitMqClient implements QueueClient {
         rt.execute(channel -> {
             for (String q : queuesToCheck) {
                 try {
-                    channel.queueDeclarePassive(q);
+                    // Use queueDeclare to create queue if it doesn't exist
+                    // Parameters: queue, durable, exclusive, autoDelete, arguments
+                    channel.queueDeclare(q, true, false, false, null);
+                    log.info("Ensured RabbitMQ queue exists: {}", q);
                 } catch (Exception ex) {
-                    throw new IllegalStateException("Failed to verify RabbitMQ queue: " + q, ex);
+                    throw new IllegalStateException("Failed to create/verify RabbitMQ queue: " + q, ex);
                 }
-                log.info("Verified RabbitMQ queue: {}", q);
             }
             return null;
         });
