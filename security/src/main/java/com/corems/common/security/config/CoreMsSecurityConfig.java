@@ -36,7 +36,7 @@ public class CoreMsSecurityConfig {
 
     @Bean
     public ServiceAuthenticationFilter serviceAuthenticationFilter() {
-        return new ServiceAuthenticationFilter(tokenProvider);
+        return new ServiceAuthenticationFilter(tokenProvider, whiteListUrls);
     }
 
     @Bean

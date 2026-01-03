@@ -17,10 +17,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,9 +30,13 @@ import java.util.Objects;
 public class ServiceAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenProvider tokenProvider;
+    private final String[] whiteListUrls;
+    private final AntPathMatcher pathMatcher;
 
-    public ServiceAuthenticationFilter(TokenProvider tokenProvider) {
+    public ServiceAuthenticationFilter(TokenProvider tokenProvider, String[] whiteListUrls) {
         this.tokenProvider = tokenProvider;
+        this.whiteListUrls = whiteListUrls;
+        this.pathMatcher = new AntPathMatcher();
     }
 
     private String getJWTFromRequest(HttpServletRequest request) {
@@ -43,10 +49,24 @@ public class ServiceAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
+    private boolean isWhitelisted(HttpServletRequest request) {
+        String requestPath = request.getRequestURI();
+        return Arrays.stream(whiteListUrls)
+                .anyMatch(pattern -> pathMatcher.match(pattern, requestPath));
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        
+        // Skip authentication for whitelisted URLs
+        if (isWhitelisted(request)) {
+            log.debug("Skipping authentication for whitelisted URL: {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String jwt = getJWTFromRequest(request);
         if (StringUtils.hasText(jwt)) {
             Jws<Claims> parsed = tokenProvider.parseToken(jwt);
