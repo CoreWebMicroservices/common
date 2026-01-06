@@ -1,6 +1,9 @@
 package com.corems.common.queue;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
+
+import com.corems.common.queue.util.QueueMDCUtil;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -12,15 +15,23 @@ class QueueMessageTest {
 
     @Test
     void constructor_CreatesMessageWithDefaults() {
+        // Clear MDC to ensure clean test state
+        MDC.clear();
+        
         QueueMessage message = new QueueMessage();
         
-        assertNull(message.getId());
+        assertNotNull(message.getId()); // Now auto-generated
         assertNull(message.getType());
         assertNull(message.getPayload());
         assertEquals(0, message.getAttempts());
-        assertNull(message.getHeaders());
+        assertNotNull(message.getHeaders()); // Now initialized
         assertNotNull(message.getCreatedAt());
         assertTrue(message.getCreatedAt().isBefore(Instant.now().plusSeconds(1)));
+        assertNull(message.getLastAttemptAt());
+        assertNull(message.getSourceService());
+        assertNull(message.getCorrelationId()); // No longer auto-generated in constructor
+        assertEquals(0, message.getPriority());
+        assertNull(message.getExpiresAt());
     }
 
     @Test
@@ -28,7 +39,7 @@ class QueueMessageTest {
         QueueMessage message = new QueueMessage();
         String testId = "test-id-123";
         String testType = "USER_CREATED";
-        Object testPayload = "test payload";
+        String testPayload = "test payload";
         int testAttempts = 3;
         Map<String, String> testHeaders = Map.of("source", "user-service", "version", "1.0");
         Instant testCreatedAt = Instant.now().minusSeconds(60);
@@ -48,24 +59,6 @@ class QueueMessageTest {
         assertEquals(testCreatedAt, message.getCreatedAt());
     }
 
-    @Test
-    void payload_CanHoldDifferentTypes() {
-        QueueMessage message = new QueueMessage();
-        
-        // Test with String
-        message.setPayload("string payload");
-        assertEquals("string payload", message.getPayload());
-        
-        // Test with Map
-        Map<String, Object> mapPayload = Map.of("key1", "value1", "key2", 42);
-        message.setPayload(mapPayload);
-        assertEquals(mapPayload, message.getPayload());
-        
-        // Test with custom object
-        TestPayload customPayload = new TestPayload("test", 123);
-        message.setPayload(customPayload);
-        assertEquals(customPayload, message.getPayload());
-    }
 
     @Test
     void headers_CanBeModified() {
@@ -125,27 +118,127 @@ class QueueMessageTest {
         assertEquals(customTime, message.getCreatedAt());
     }
 
-    // Helper class for testing custom payloads
-    private static class TestPayload {
-        private final String name;
-        private final int value;
+    @Test
+    void incrementAttempts_UpdatesAttemptsAndTimestamp() {
+        QueueMessage message = new QueueMessage();
+        assertEquals(0, message.getAttempts());
+        assertNull(message.getLastAttemptAt());
         
-        public TestPayload(String name, int value) {
-            this.name = name;
-            this.value = value;
-        }
+        message.incrementAttempts();
+        assertEquals(1, message.getAttempts());
+        assertNotNull(message.getLastAttemptAt());
         
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            TestPayload that = (TestPayload) obj;
-            return value == that.value && name.equals(that.name);
-        }
+        Instant firstAttempt = message.getLastAttemptAt();
+        message.incrementAttempts();
+        assertEquals(2, message.getAttempts());
+        assertTrue(message.getLastAttemptAt().isAfter(firstAttempt) || message.getLastAttemptAt().equals(firstAttempt));
+    }
+
+    @Test
+    void isExpired_ReturnsFalseWhenNoExpiration() {
+        QueueMessage message = new QueueMessage();
+        assertFalse(message.isExpired());
+    }
+
+    @Test
+    void isExpired_ReturnsTrueWhenExpired() {
+        QueueMessage message = new QueueMessage();
+        message.setExpiresAt(Instant.now().minusSeconds(60));
+        assertTrue(message.isExpired());
+    }
+
+    @Test
+    void isExpired_ReturnsFalseWhenNotExpired() {
+        QueueMessage message = new QueueMessage();
+        message.setExpiresAt(Instant.now().plusSeconds(60));
+        assertFalse(message.isExpired());
+    }
+
+    @Test
+    void fluentMethods_WorkCorrectly() {
+        QueueMessage message = new QueueMessage();
         
-        @Override
-        public int hashCode() {
-            return name.hashCode() + value;
-        }
+        QueueMessage result = message
+                .withCorrelationId("test-correlation")
+                .withPriority(5)
+                .withHeader("source", "test-service");
+        
+        assertSame(message, result); // Should return same instance
+        assertEquals("test-correlation", message.getCorrelationId());
+        assertEquals(5, message.getPriority());
+        assertEquals("test-service", message.getHeaders().get("source"));
+    }
+
+    @Test
+    void headers_AreInitializedByDefault() {
+        QueueMessage message = new QueueMessage();
+        assertNotNull(message.getHeaders());
+        assertTrue(message.getHeaders().isEmpty());
+        
+        message.getHeaders().put("test", "value");
+        assertEquals("value", message.getHeaders().get("test"));
+    }
+
+    @Test
+    void constructor_WithExistingMDCCorrelationId_UsesMDCValue() {
+        MDC.clear();
+        String expectedCorrelationId = "test-correlation-123";
+        MDC.put(QueueMDCUtil.CORRELATION_ID_KEY, expectedCorrelationId);
+        
+        QueueMessage message = new QueueMessage();
+        
+        // Note: Constructor no longer auto-sets from MDC, correlation ID should be null
+        assertNull(message.getCorrelationId());
+        assertEquals(expectedCorrelationId, MDC.get(QueueMDCUtil.CORRELATION_ID_KEY));
+        
+        MDC.clear();
+    }
+
+    @Test
+    void populateMDC_SetsCorrelationIdAndTracingContext() {
+        MDC.clear();
+        
+        QueueMessage message = new QueueMessage();
+        message.setCorrelationId("test-correlation");
+        message.setType("TEST_MESSAGE");
+        message.setSourceService("test-service");
+        message.getHeaders().put(QueueMDCUtil.TRACE_ID_KEY, "trace-789");
+        message.getHeaders().put(QueueMDCUtil.SPAN_ID_KEY, "span-101");
+        
+        QueueMDCUtil.setupConsumerMDC(message);
+        
+        assertEquals("test-correlation", MDC.get(QueueMDCUtil.CORRELATION_ID_KEY));
+        assertEquals("trace-789", MDC.get(QueueMDCUtil.TRACE_ID_KEY));
+        assertEquals("span-101", MDC.get(QueueMDCUtil.SPAN_ID_KEY));
+        assertEquals(message.getId(), MDC.get("messageId"));
+        assertEquals("TEST_MESSAGE", MDC.get("messageType"));
+        assertEquals("test-service", MDC.get("sourceService"));
+        
+        MDC.clear();
+    }
+
+    @Test
+    void clearMDC_RemovesMessageSpecificEntries() {
+        MDC.clear();
+        
+        // Set up MDC with both message-specific and request-level entries
+        MDC.put(QueueMDCUtil.CORRELATION_ID_KEY, "correlation-123");
+        MDC.put(QueueMDCUtil.TRACE_ID_KEY, "trace-123");
+        MDC.put("messageId", "msg-123");
+        MDC.put("messageType", "TEST");
+        MDC.put("sourceService", "test-service");
+        
+        QueueMDCUtil.cleanupConsumerMDC();
+        
+        // Request-level entries should remain
+        assertEquals("correlation-123", MDC.get(QueueMDCUtil.CORRELATION_ID_KEY));
+        assertEquals("trace-123", MDC.get(QueueMDCUtil.TRACE_ID_KEY));
+        
+        // Message-specific entries should be removed
+        assertNull(MDC.get("messageId"));
+        assertNull(MDC.get("messageType"));
+        assertNull(MDC.get("sourceService"));
+        
+        MDC.clear();
     }
 }

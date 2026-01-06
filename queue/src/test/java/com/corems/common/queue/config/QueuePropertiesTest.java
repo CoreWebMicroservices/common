@@ -52,7 +52,12 @@ class QueuePropertiesTest {
         assertNotNull(rabbitProps.getRequiredQueues());
         assertTrue(rabbitProps.getRequiredQueues().isEmpty());
         assertEquals(1000L, rabbitProps.getPollIntervalMs());
-        assertEquals(1, rabbitProps.getRetryCount());
+        assertEquals(3, rabbitProps.getRetryCount());
+        assertEquals(1, rabbitProps.getPrefetchCount());
+        assertTrue(rabbitProps.isDurableQueues());
+        assertFalse(rabbitProps.isAutoDeleteQueues());
+        assertNotNull(rabbitProps.getRetryPolicy());
+        assertNotNull(rabbitProps.getConnectionProperties());
     }
 
     @Test

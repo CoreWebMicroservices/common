@@ -5,6 +5,8 @@ import com.corems.common.exception.handler.DefaultExceptionReasonCodes;
 import com.corems.common.queue.QueueClient;
 import com.corems.common.queue.QueueMessage;
 import com.corems.common.queue.config.QueueProperties;
+import com.corems.common.queue.util.QueueMDCUtil;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -29,7 +31,6 @@ public class RabbitMqClient implements QueueClient {
             throw new IllegalArgumentException("RabbitMQ host missing (queue.providers.rabbitMq.host)");
         }
 
-        // Allow either a defaultQueue OR at least one requiredQueue to be configured.
         boolean hasDefault = rabbitProp.getDefaultQueue() != null && !rabbitProp.getDefaultQueue().isBlank();
         boolean hasRequired = rabbitProp.getRequiredQueues() != null && !rabbitProp.getRequiredQueues().isEmpty();
         if (!hasDefault && !hasRequired) {
@@ -64,9 +65,7 @@ public class RabbitMqClient implements QueueClient {
         rt.execute(channel -> {
             for (String q : queuesToCheck) {
                 try {
-                    // Use queueDeclare to create queue if it doesn't exist
-                    // Parameters: queue, durable, exclusive, autoDelete, arguments
-                    channel.queueDeclare(q, true, false, false, null);
+                    channel.queueDeclare(q, rabbitProps.isDurableQueues(), false, rabbitProps.isAutoDeleteQueues(), null);
                     log.info("Ensured RabbitMQ queue exists: {}", q);
                 } catch (Exception ex) {
                     throw new IllegalStateException("Failed to create/verify RabbitMQ queue: " + q, ex);
@@ -102,8 +101,23 @@ public class RabbitMqClient implements QueueClient {
             connectionFactory.setPassword(rabbitProps.getPassword());
         }
 
+        // Apply connection optimizations from blog posts
+        connectionFactory.setChannelCacheSize(25);
+        connectionFactory.setConnectionCacheSize(1);
+        
+        // Apply custom connection properties if configured
+        if (!rabbitProps.getConnectionProperties().isEmpty()) {
+            connectionFactory.getRabbitConnectionFactory().setConnectionTimeout(
+                (Integer) rabbitProps.getConnectionProperties().getOrDefault("connectionTimeout", 30000)
+            );
+        }
+
         RabbitTemplate rt = new RabbitTemplate(connectionFactory);
         rt.setMessageConverter(converter);
+        
+        // Set receive timeout for polling operations
+        rt.setReceiveTimeout(rabbitProps.getPollIntervalMs());
+        
         return rt;
     }
 
@@ -126,24 +140,42 @@ public class RabbitMqClient implements QueueClient {
     public void send(String destination, QueueMessage message) throws ServiceException {
         String exchange = props.getExchange() == null ? "" : props.getExchange();
         String dest = (destination == null || destination.isEmpty()) ? props.getDefaultQueue() : destination;
+        
+        // Use utility to prepare message with MDC context
+        QueueMDCUtil.prepareMessageForSending(message);
+
         try {
-            rabbitTemplate.convertAndSend(exchange, dest, message);
-            log.info("Sent message to exchange='{}' queue='{}' id={}", exchange, dest, message.getId());
+            rabbitTemplate.convertAndSend(exchange, dest, message, msg -> {
+                // Set correlation ID in RabbitMQ message properties for native support
+                if (message.getCorrelationId() != null) {
+                    msg.getMessageProperties().setCorrelationId(message.getCorrelationId());
+                }
+                
+                // Set message priority if supported
+                if (message.getPriority() != null && message.getPriority() > 0) {
+                    msg.getMessageProperties().setPriority(message.getPriority());
+                }
+                // Set expiration if configured
+                if (message.getExpiresAt() != null) {
+                    long ttl = message.getExpiresAt().toEpochMilli() - System.currentTimeMillis();
+                    if (ttl > 0) {
+                        msg.getMessageProperties().setExpiration(String.valueOf(ttl));
+                    }
+                }
+                return msg;
+            });
+            log.info("Sent message to exchange='{}' queue='{}' id={} correlationId={}", 
+                    exchange, dest, message.getId(), message.getCorrelationId());
         } catch (Exception e) {
-            log.error("Failed to send message id={}", message.getId(), e);
+            log.error("Failed to send message id={} correlationId={}", 
+                    message.getId(), message.getCorrelationId(), e);
             throw ServiceException.of(DefaultExceptionReasonCodes.SERVER_ERROR, "Failed to send message.");
         }
     }
 
     @Override
     public Optional<QueueMessage> poll() {
-        try {
-            QueueMessage msg = (QueueMessage) rabbitTemplate.receiveAndConvert(props.getDefaultQueue(), props.getPollIntervalMs());
-            return Optional.ofNullable(msg);
-        } catch (Exception e) {
-            log.error("Failed to poll destination={}", props.getDefaultQueue(), e);
-            return Optional.empty();
-        }
+        return poll(props.getDefaultQueue());
     }
 
     @Override
@@ -155,5 +187,19 @@ public class RabbitMqClient implements QueueClient {
             log.error("Failed to poll destination={}", destination, e);
             return Optional.empty();
         }
+    }
+
+    @Override
+    public List<QueueMessage> pollBatch(String destination, int maxMessages) {
+        List<QueueMessage> messages = new ArrayList<>();
+        for (int i = 0; i < maxMessages; i++) {
+            Optional<QueueMessage> msg = poll(destination);
+            if (msg.isPresent()) {
+                messages.add(msg.get());
+            } else {
+                break; // No more messages available
+            }
+        }
+        return messages;
     }
 }

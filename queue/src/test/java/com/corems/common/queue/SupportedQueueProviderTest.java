@@ -15,12 +15,33 @@ class SupportedQueueProviderTest {
     }
 
     @Test
-    void fromString_WithCaseInsensitiveInput_ReturnsRabbitMq() {
+    void fromString_WithValidSqsVariants_ReturnsSqs() {
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("sqs"));
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("aws_sqs"));
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("aws-sqs"));
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("awssqs"));
+    }
+
+    @Test
+    void fromString_WithValidKafkaVariants_ReturnsKafka() {
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, SupportedQueueProvider.fromString("kafka"));
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, SupportedQueueProvider.fromString("apache_kafka"));
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, SupportedQueueProvider.fromString("apache-kafka"));
+    }
+
+    @Test
+    void fromString_WithCaseInsensitiveInput_ReturnsCorrectProvider() {
         assertEquals(SupportedQueueProvider.RABBIT_MQ, SupportedQueueProvider.fromString("RABBITMQ"));
         assertEquals(SupportedQueueProvider.RABBIT_MQ, SupportedQueueProvider.fromString("RabbitMQ"));
         assertEquals(SupportedQueueProvider.RABBIT_MQ, SupportedQueueProvider.fromString("RABBIT_MQ"));
         assertEquals(SupportedQueueProvider.RABBIT_MQ, SupportedQueueProvider.fromString("Rabbit-MQ"));
         assertEquals(SupportedQueueProvider.RABBIT_MQ, SupportedQueueProvider.fromString("RABBIT"));
+        
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("SQS"));
+        assertEquals(SupportedQueueProvider.AWS_SQS, SupportedQueueProvider.fromString("AWS_SQS"));
+        
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, SupportedQueueProvider.fromString("KAFKA"));
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, SupportedQueueProvider.fromString("APACHE_KAFKA"));
     }
 
     @Test
@@ -32,10 +53,8 @@ class SupportedQueueProviderTest {
 
     @Test
     void fromString_WithInvalidInput_ReturnsNull() {
-        assertNull(SupportedQueueProvider.fromString("kafka"));
         assertNull(SupportedQueueProvider.fromString("activemq"));
         assertNull(SupportedQueueProvider.fromString("redis"));
-        assertNull(SupportedQueueProvider.fromString("sqs"));
         assertNull(SupportedQueueProvider.fromString("invalid"));
         assertNull(SupportedQueueProvider.fromString(""));
     }
@@ -56,8 +75,10 @@ class SupportedQueueProviderTest {
     @Test
     void enumValues_ContainsExpectedProviders() {
         SupportedQueueProvider[] values = SupportedQueueProvider.values();
-        assertEquals(1, values.length);
+        assertEquals(3, values.length);
         assertEquals(SupportedQueueProvider.RABBIT_MQ, values[0]);
+        assertEquals(SupportedQueueProvider.AWS_SQS, values[1]);
+        assertEquals(SupportedQueueProvider.APACHE_KAFKA, values[2]);
     }
 
     @Test

@@ -15,7 +15,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.springframework.amqp.core.MessagePostProcessor;
 
 class RabbitMqClientTest {
 
@@ -140,7 +142,9 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send(message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message), any(MessagePostProcessor.class));
+        // Verify correlation ID was set
+        assertNotNull(message.getCorrelationId());
     }
 
     @Test
@@ -151,7 +155,7 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send(destination, message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq(destination), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq(destination), eq(message), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -161,7 +165,7 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send(null, message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -171,7 +175,7 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send("", message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("test-queue"), eq(message), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -182,7 +186,7 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send(message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq(""), eq("test-queue"), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq(""), eq("test-queue"), eq(message), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -191,7 +195,7 @@ class RabbitMqClientTest {
         message.setId("test-id");
         
         doThrow(new RuntimeException("Connection failed")).when(mockRabbitTemplate)
-            .convertAndSend(anyString(), anyString(), any(QueueMessage.class));
+            .convertAndSend(anyString(), anyString(), any(QueueMessage.class), any(MessagePostProcessor.class));
         
         ServiceException exception = assertThrows(ServiceException.class, 
             () -> rabbitMqClient.send(message));
@@ -278,7 +282,7 @@ class RabbitMqClientTest {
         
         rabbitMqClient.send("user-events", message);
         
-        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("user-events"), eq(message));
+        verify(mockRabbitTemplate).convertAndSend(eq("test-exchange"), eq("user-events"), eq(message), any(MessagePostProcessor.class));
     }
 
     @Getter
