@@ -32,10 +32,10 @@ public class TokenProvider {
     @Value("${spring.security.jwt.secretKey}")
     private String secretKey;
 
-    @Value("${spring.security.jwt.refreshExpirationTimeInMS}")
+    @Value("${spring.security.jwt.refreshExpirationTimeInMinutes}")
     private long jwtRefreshExpiration;
 
-    @Value("${spring.security.jwt.accessExpirationTimeInMS}")
+    @Value("${spring.security.jwt.accessExpirationTimeInMinutes}")
     private long jwtAccessExpiration;
 
     private JwtParser jwtParser;
@@ -83,28 +83,30 @@ public class TokenProvider {
             String subject,
             Map<String, Object> extraClaims
     ) {
-        return Jwts
-                .builder()
-                .header().type(TOKEN_TYPE_ACCESS).and()
-                .subject(subject)
-                .claims(extraClaims)
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + jwtAccessExpiration))
-                .signWith(getSignInKey())
-                .compact();
+        return createCustomToken(TOKEN_TYPE_ACCESS, subject, extraClaims, jwtAccessExpiration);
     }
 
     public String createRefreshToken(
             String subject,
             Map<String, Object> extraClaims
     ) {
+        return createCustomToken(TOKEN_TYPE_REFRESH, subject, extraClaims, jwtRefreshExpiration);
+    }
+
+
+    public String createCustomToken(
+            String tokenType,
+            String subject,
+            Map<String, Object> extraClaims,
+            long expirationMinutes
+    ) {
         return Jwts
                 .builder()
-                .header().type(TOKEN_TYPE_REFRESH).and()
+                .header().type(tokenType).and()
                 .subject(subject)
                 .claims(extraClaims)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + jwtRefreshExpiration))
+                .expiration(new Date(System.currentTimeMillis() + expirationMinutes * 60000))
                 .signWith(getSignInKey())
                 .compact();
     }

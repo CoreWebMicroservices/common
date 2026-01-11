@@ -123,11 +123,40 @@ public class DefaultErrorConverter implements ErrorConverter {
 
     @Override
     public List<Error> getErrorsFromMethodArgumentNotValidException(MethodArgumentNotValidException ex, WebRequest request) {
-        return ex.getBindingResult().getFieldErrors().stream().map(fieldError ->
-                Error.of(DefaultExceptionReasonCodes.PROVIDED_VALUE_INVALID.getErrorCode(),
-                        DefaultExceptionReasonCodes.PROVIDED_VALUE_INVALID.getDescription(),
-                        fieldError.getField() + " - " + fieldError.getDefaultMessage())
-        ).sorted(this.errorComparator).toList();
+        return ex.getBindingResult().getFieldErrors().stream().map(fieldError -> {
+            String fieldName = fieldError.getField();
+            String defaultMessage = fieldError.getDefaultMessage();
+            
+            // Try to get a more user-friendly field description
+            String fieldDescription = getFieldDescription(fieldError);
+            
+            String message = fieldDescription != null ? fieldDescription : fieldName;
+            message += " - " + defaultMessage;
+            
+            return Error.of(DefaultExceptionReasonCodes.PROVIDED_VALUE_INVALID.getErrorCode(),
+                    DefaultExceptionReasonCodes.PROVIDED_VALUE_INVALID.getDescription(),
+                    message);
+        }).sorted(this.errorComparator).toList();
+    }
+    
+    private String getFieldDescription(org.springframework.validation.FieldError fieldError) {
+        try {
+            // For generated OpenAPI models, try to get better field names
+            String fieldName = fieldError.getField();
+            
+            // Convert camelCase to human readable format
+            String humanReadable = fieldName.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase();
+            
+            // Capitalize first letter
+            if (!humanReadable.isEmpty()) {
+                humanReadable = Character.toUpperCase(humanReadable.charAt(0)) + humanReadable.substring(1);
+            }
+            
+            return humanReadable;
+        } catch (Exception e) {
+            log.debug("Could not get field description for {}: {}", fieldError.getField(), e.getMessage());
+            return null;
+        }
     }
 
     @Override
