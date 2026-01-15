@@ -35,9 +35,8 @@ class TokenProviderTest {
 
     @Test
     void createAccessToken_WithValidData_CreatesToken() {
-        String subject = "test@example.com";
+        String subject = "123e4567-e89b-12d3-a456-426614174000";
         Map<String, Object> claims = Map.of(
-            TokenProvider.CLAIM_USER_ID, "123e4567-e89b-12d3-a456-426614174000",
             TokenProvider.CLAIM_FIRST_NAME, "John",
             TokenProvider.CLAIM_LAST_NAME, "Doe",
             TokenProvider.CLAIM_ROLES, List.of("USER_MS_USER")
@@ -48,16 +47,15 @@ class TokenProviderTest {
         assertNotNull(token);
         assertFalse(token.isEmpty());
         
-        // Verify token structure
         String[] parts = token.split("\\.");
-        assertEquals(3, parts.length); // header.payload.signature
+        assertEquals(3, parts.length);
     }
 
     @Test
     void createRefreshToken_WithValidData_CreatesToken() {
-        String subject = "test@example.com";
+        String subject = "123e4567-e89b-12d3-a456-426614174000";
         Map<String, Object> claims = Map.of(
-            TokenProvider.CLAIM_USER_ID, "123e4567-e89b-12d3-a456-426614174000"
+            TokenProvider.CLAIM_TOKEN_ID, "token-uuid-123"
         );
 
         String token = tokenProvider.createRefreshToken(subject, claims);
@@ -65,16 +63,14 @@ class TokenProviderTest {
         assertNotNull(token);
         assertFalse(token.isEmpty());
         
-        // Verify token structure
         String[] parts = token.split("\\.");
         assertEquals(3, parts.length);
     }
 
     @Test
     void getAllClaims_WithValidToken_ReturnsClaims() {
-        String subject = "test@example.com";
+        String subject = "123e4567-e89b-12d3-a456-426614174000";
         Map<String, Object> expectedClaims = Map.of(
-            TokenProvider.CLAIM_USER_ID, "123e4567-e89b-12d3-a456-426614174000",
             TokenProvider.CLAIM_FIRST_NAME, "John",
             TokenProvider.CLAIM_LAST_NAME, "Doe"
         );
@@ -84,7 +80,6 @@ class TokenProviderTest {
         Claims claims = tokenProvider.getAllClaims(token);
         
         assertEquals(subject, claims.getSubject());
-        assertEquals("123e4567-e89b-12d3-a456-426614174000", claims.get(TokenProvider.CLAIM_USER_ID));
         assertEquals("John", claims.get(TokenProvider.CLAIM_FIRST_NAME));
         assertEquals("Doe", claims.get(TokenProvider.CLAIM_LAST_NAME));
     }
@@ -114,19 +109,19 @@ class TokenProviderTest {
 
     @Test
     void getClaim_WithValidTokenAndClaimResolver_ReturnsClaimValue() {
-        String subject = "test@example.com";
-        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_USER_ID, "test-user-id");
+        String subject = "test-user-id";
+        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_FIRST_NAME, "John");
         String token = tokenProvider.createAccessToken(subject, claims);
         
-        String userId = tokenProvider.getClaim(token, claims1 -> claims1.get(TokenProvider.CLAIM_USER_ID, String.class));
+        String firstName = tokenProvider.getClaim(token, claims1 -> claims1.get(TokenProvider.CLAIM_FIRST_NAME, String.class));
         
-        assertEquals("test-user-id", userId);
+        assertEquals("John", firstName);
     }
 
     @Test
     void parseToken_WithValidToken_ReturnsJws() {
-        String subject = "test@example.com";
-        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_USER_ID, "test-user-id");
+        String subject = "test-user-id";
+        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_FIRST_NAME, "John");
         String token = tokenProvider.createAccessToken(subject, claims);
         
         Jws<Claims> jws = tokenProvider.parseToken(token);
@@ -171,19 +166,18 @@ class TokenProviderTest {
     @Test
     void createAccessToken_WithEmptySubject_CreatesTokenWithEmptySubject() {
         String subject = "";
-        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_USER_ID, "test-user-id");
+        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_FIRST_NAME, "John");
         
         String token = tokenProvider.createAccessToken(subject, claims);
         
         assertNotNull(token);
         Claims tokenClaims = tokenProvider.getAllClaims(token);
-        // Empty string subject becomes null in JWT
         assertNull(tokenClaims.getSubject());
     }
 
     @Test
     void createAccessToken_WithNullClaims_CreatesToken() {
-        String subject = "test@example.com";
+        String subject = "test-user-id";
         
         String token = tokenProvider.createAccessToken(subject, null);
         
@@ -194,8 +188,8 @@ class TokenProviderTest {
 
     @Test
     void createTokens_WithDifferentExpirationTimes_HaveDifferentExpirations() {
-        String subject = "test@example.com";
-        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_USER_ID, "test-user-id");
+        String subject = "test-user-id";
+        Map<String, Object> claims = Map.of(TokenProvider.CLAIM_FIRST_NAME, "John");
         
         String accessToken = tokenProvider.createAccessToken(subject, claims);
         String refreshToken = tokenProvider.createRefreshToken(subject, claims);
@@ -214,7 +208,7 @@ class TokenProviderTest {
         assertEquals("email", TokenProvider.CLAIM_EMAIL);
         assertEquals("first_name", TokenProvider.CLAIM_FIRST_NAME);
         assertEquals("last_name", TokenProvider.CLAIM_LAST_NAME);
-        assertEquals("user_uuid", TokenProvider.CLAIM_USER_ID);
+        assertEquals("token_id", TokenProvider.CLAIM_TOKEN_ID);
         assertEquals("roles", TokenProvider.CLAIM_ROLES);
     }
 }

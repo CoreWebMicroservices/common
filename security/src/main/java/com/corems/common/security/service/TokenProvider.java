@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Slf4j
@@ -27,6 +28,7 @@ public class TokenProvider {
     public static final String CLAIM_FIRST_NAME = "first_name";
     public static final String CLAIM_LAST_NAME = "last_name";
     public static final String CLAIM_USER_ID = "user_uuid";
+    public static final String CLAIM_TOKEN_ID = "token_id";
     public static final String CLAIM_ROLES = "roles";
 
     @Value("${spring.security.jwt.secretKey}")
@@ -104,6 +106,7 @@ public class TokenProvider {
                 .builder()
                 .header().type(tokenType).and()
                 .subject(subject)
+                .id(UUID.randomUUID().toString())
                 .claims(extraClaims)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expirationMinutes * 60000))
