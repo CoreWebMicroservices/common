@@ -6,25 +6,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "corems.security.jwt")
+@ConfigurationProperties(prefix = "spring.security.jwt")
 public class CoremsJwtProperties {
-
-    private Internal internal = new Internal();
-    private External external = new External();
-
-    @Getter
-    @Setter
-    public static class Internal {
-        private boolean enabled = true;
-        private String jwkPublicKey;
-        private String jwkPrivateKey;
-    }
-
-    @Getter
-    @Setter
-    public static class External {
-        private boolean enabled = true;
-        private String jwkPublicKey;
-    }
+    
+    private JwtAlgorithm algorithm = JwtAlgorithm.HS256;
+    private String secretKey;
+    private String privateKey;
+    private String publicKey;
+    private long refreshExpirationTimeInMinutes = 1440;
+    private long accessExpirationTimeInMinutes = 10;
+    private String issuer;
+    private String keyId;
 }
 

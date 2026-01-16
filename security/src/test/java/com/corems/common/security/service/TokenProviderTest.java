@@ -1,6 +1,8 @@
 package com.corems.common.security.service;
 
 import com.corems.common.exception.ServiceException;
+import com.corems.common.security.config.CoremsJwtProperties;
+import com.corems.common.security.config.JwtAlgorithm;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +10,6 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -22,15 +23,20 @@ class TokenProviderTest {
 
     private TokenProvider tokenProvider;
     private final String testSecretKey = "dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tdGVzdGluZy1wdXJwb3Nlcy1vbmx5LXRoaXMtaXMtYS12ZXJ5LWxvbmctc2VjcmV0LWtleQ==";
-    private final long accessExpiration = 3600000; // 1 hour
-    private final long refreshExpiration = 86400000; // 24 hours
+    private final long accessExpiration = 60; // 1 hour in minutes
+    private final long refreshExpiration = 1440; // 24 hours in minutes
 
     @BeforeEach
     void setUp() {
-        tokenProvider = new TokenProvider();
-        ReflectionTestUtils.setField(tokenProvider, "secretKey", testSecretKey);
-        ReflectionTestUtils.setField(tokenProvider, "jwtAccessExpiration", accessExpiration);
-        ReflectionTestUtils.setField(tokenProvider, "jwtRefreshExpiration", refreshExpiration);
+        CoremsJwtProperties jwtProperties = new CoremsJwtProperties();
+        jwtProperties.setAlgorithm(JwtAlgorithm.HS256);
+        jwtProperties.setSecretKey(testSecretKey);
+        jwtProperties.setAccessExpirationTimeInMinutes(accessExpiration);
+        jwtProperties.setRefreshExpirationTimeInMinutes(refreshExpiration);
+        jwtProperties.setIssuer("http://localhost:3000");
+        jwtProperties.setKeyId("test-key-1");
+        
+        tokenProvider = new TokenProvider(jwtProperties);
     }
 
     @Test
@@ -93,12 +99,11 @@ class TokenProviderTest {
 
     @Test
     void getAllClaims_WithExpiredToken_ThrowsAuthServiceException() {
-        // Create token with past expiration
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(testSecretKey));
         String expiredToken = Jwts.builder()
             .subject("test@example.com")
-            .issuedAt(new Date(System.currentTimeMillis() - 7200000)) // 2 hours ago
-            .expiration(new Date(System.currentTimeMillis() - 3600000)) // 1 hour ago (expired)
+            .issuedAt(new Date(System.currentTimeMillis() - 7200000))
+            .expiration(new Date(System.currentTimeMillis() - 3600000))
             .signWith(key)
             .compact();
         
@@ -150,16 +155,14 @@ class TokenProviderTest {
 
     @Test
     void isTokenValid_WithExpiredToken_ReturnsFalse() {
-        // Create token with past expiration
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(testSecretKey));
         String expiredToken = Jwts.builder()
             .subject("test@example.com")
-            .issuedAt(new Date(System.currentTimeMillis() - 7200000)) // 2 hours ago
-            .expiration(new Date(System.currentTimeMillis() - 3600000)) // 1 hour ago (expired)
+            .issuedAt(new Date(System.currentTimeMillis() - 7200000))
+            .expiration(new Date(System.currentTimeMillis() - 3600000))
             .signWith(key)
             .compact();
         
-        // This should throw an exception when trying to validate expired token
         assertThrows(ServiceException.class, () -> tokenProvider.isTokenValid(expiredToken));
     }
 
@@ -197,7 +200,6 @@ class TokenProviderTest {
         Claims accessClaims = tokenProvider.getAllClaims(accessToken);
         Claims refreshClaims = tokenProvider.getAllClaims(refreshToken);
         
-        // Refresh token should expire later than access token
         assertTrue(refreshClaims.getExpiration().after(accessClaims.getExpiration()));
     }
 
@@ -205,10 +207,24 @@ class TokenProviderTest {
     void tokenConstants_AreCorrectlyDefined() {
         assertEquals("access_token", TokenProvider.TOKEN_TYPE_ACCESS);
         assertEquals("refresh_token", TokenProvider.TOKEN_TYPE_REFRESH);
+        assertEquals("id_token", TokenProvider.TOKEN_TYPE_ID);
         assertEquals("email", TokenProvider.CLAIM_EMAIL);
         assertEquals("first_name", TokenProvider.CLAIM_FIRST_NAME);
         assertEquals("last_name", TokenProvider.CLAIM_LAST_NAME);
+        assertEquals("user_uuid", TokenProvider.CLAIM_USER_ID);
         assertEquals("token_id", TokenProvider.CLAIM_TOKEN_ID);
         assertEquals("roles", TokenProvider.CLAIM_ROLES);
+    }
+    
+    @Test
+    void getAlgorithm_ReturnsConfiguredAlgorithm() {
+        String algorithm = tokenProvider.getAlgorithm();
+        assertEquals("HS256", algorithm);
+    }
+    
+    @Test
+    void getKeyId_ReturnsConfiguredKeyId() {
+        String keyId = tokenProvider.getKeyId();
+        assertEquals("test-key-1", keyId);
     }
 }

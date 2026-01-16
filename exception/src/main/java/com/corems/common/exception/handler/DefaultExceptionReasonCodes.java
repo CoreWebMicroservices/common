@@ -16,6 +16,7 @@ public enum DefaultExceptionReasonCodes implements ExceptionReasonCodes {
     UNAUTHORIZED("user.unauthorized", HttpStatus.UNAUTHORIZED, "User is unauthorized"),
     ACCESS_DENIED("user.access_denied", HttpStatus.UNAUTHORIZED, "Access is denied. You have no rights to perform this operation."),
     FORBIDDEN("user.forbidden", HttpStatus.FORBIDDEN, "Access to this resource is forbidden"),
+    NOT_FOUND("resource.not.found", HttpStatus.NOT_FOUND, "Resource is not found"),
 
     INVALID_REQUEST("invalid.request", HttpStatus.BAD_REQUEST, "Invalid request"),
     INVALID_INPUT_DATA("invalid.data", HttpStatus.BAD_REQUEST, "Invalid input data"),
