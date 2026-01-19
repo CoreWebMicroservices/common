@@ -22,7 +22,9 @@ public enum CoreMsRoles {
     TRANSLATION_MS_ADMIN,
     // Document Microservice Roles
     DOCUMENT_MS_ADMIN,
-    DOCUMENT_MS_USER;
+    DOCUMENT_MS_USER,
+    // Template Microservice Roles
+    TEMPLATE_MS_ADMIN;
 
 
     public static Set<CoreMsRoles> getSystemRoles() {
