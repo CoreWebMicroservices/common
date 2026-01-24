@@ -1,2 +1,3 @@
+com.corems.common.security.config.SecurityAutoConfiguration
 com.corems.common.security.config.CoreMsSecurityConfig
 com.corems.common.security.config.CoreMsPermitAllSecurityConfig

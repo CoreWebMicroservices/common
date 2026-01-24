@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.function.Function;
 
 @Slf4j
-@Service
 public class TokenProvider {
     public static final String TOKEN_TYPE_ACCESS = "access_token";
     public static final String TOKEN_TYPE_REFRESH = "refresh_token";
