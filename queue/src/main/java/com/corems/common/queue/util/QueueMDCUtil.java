@@ -94,6 +94,9 @@ public final class QueueMDCUtil {
         if (message.getSourceService() != null) {
             MDC.put("sourceService", message.getSourceService());
         }
+        if (message.getUser() != null && message.getUser().getUserId() != null) {
+            MDC.put("userId", message.getUser().getUserId().toString());
+        }
     }
     
     /**
@@ -104,6 +107,7 @@ public final class QueueMDCUtil {
         MDC.remove("messageId");
         MDC.remove("messageType");
         MDC.remove("sourceService");
+        MDC.remove("userId");
     }
 
     

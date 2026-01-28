@@ -4,6 +4,7 @@ import com.corems.common.queue.QueueClient;
 import com.corems.common.queue.QueueMessage;
 import com.corems.common.queue.config.QueueProperties;
 import com.corems.common.queue.util.QueueMDCUtil;
+import com.corems.common.queue.util.QueueSecurityContextUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -127,6 +128,8 @@ public class GenericQueuePoller implements AutoCloseable {
         QueueMDCUtil.setupConsumerMDC(qm);
         
         try {
+            QueueSecurityContextUtil.setSecurityContextFromQueueUser(qm.getUser());
+            
             MessageHandler handler = handlers.get(qm.getType());
             if (handler == null) {
                 log.error("No handler registered for message type={}", qm.getType());
@@ -145,6 +148,7 @@ public class GenericQueuePoller implements AutoCloseable {
                 handleFailedMessage(qm, ex);
             }
         } finally {
+            QueueSecurityContextUtil.clearSecurityContext();
             QueueMDCUtil.cleanupConsumerMDC();
         }
     }

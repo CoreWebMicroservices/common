@@ -58,7 +58,8 @@ public class InboundClientAutoConfiguration {
 
             String token;
             if (authentication != null && authentication.isAuthenticated()
-                    && authentication.getPrincipal() instanceof UserPrincipal principal) {
+                    && authentication.getPrincipal() instanceof UserPrincipal principal
+                    && principal.getUserId() != null) {
 
                 Map<String, Object> claims = new HashMap<>();
                 claims.put(TokenProvider.CLAIM_EMAIL, principal.getEmail());
@@ -118,7 +119,8 @@ public class InboundClientAutoConfiguration {
                     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
                     String token;
                     if (authentication != null && authentication.isAuthenticated()
-                            && authentication.getPrincipal() instanceof UserPrincipal principal) {
+                            && authentication.getPrincipal() instanceof UserPrincipal principal 
+                            && principal.getUserId() != null) {
 
                         Map<String, Object> claims = new HashMap<>();
                         claims.put(TokenProvider.CLAIM_EMAIL, principal.getEmail());
