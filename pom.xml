@@ -36,4 +36,11 @@
         <module>inbound-client</module>
         <module>observability</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/CoreWebMicroservices/corems-project</url>
+        </repository>
+    </repositories>
 </project>
