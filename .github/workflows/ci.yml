@@ -13,42 +13,10 @@ on:
 jobs:
   build-and-publish:
     name: Build and Publish Common Modules
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Java 25
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Configure Maven for GitHub Packages
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<EOF
-          <settings>
-            <servers>
-              <server>
-                <id>github</id>
-                <username>${{ github.actor }}</username>
-                <password>${{ secrets.GITHUB_TOKEN }}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
-
-      - name: Build and Install
-        run: mvn clean install
-
-      - name: Run Tests
-        run: mvn test
-
-      - name: Publish to GitHub Packages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: mvn deploy -DskipTests=true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: CoreWebMicroservices/corems-project/.github/workflows/java-library-ci.yml@main
+    with:
+      java-version: '25'
+      run-tests: true
+      publish-artifacts: true
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
