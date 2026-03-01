@@ -10,6 +10,10 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-publish:
     name: Build and Publish Common Modules
@@ -19,4 +23,4 @@ jobs:
       run-tests: true
       publish-artifacts: true
     secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
